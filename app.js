@@ -235,9 +235,7 @@ document.getElementById('btn-optimizar').addEventListener('click', async () => {
             const res = await fetch(urlRoute);
             const dataRoute = await res.json();
             if (dataRoute.code === "Ok" && dataRoute.routes && dataRoute.routes[0]) {
-                // Volteamos forzosamente cada par de coordenadas antes de guardarlas
-                    const coordenadasCorregidas = dataRoute.routes[0].geometry.coordinates.map(coord => [coord[1], coord[0]]);
-                    coordenadasLineaCompleta.push(...coordenadasCorregidas);
+                coordenadasLineaCompleta.push(...dataRoute.routes[0].geometry.coordinates);
                 if (!exitoVroom) {
                     viajeDataTrip.distance += dataRoute.routes[0].distance;
                     viajeDataTrip.duration += dataRoute.routes[0].duration;
@@ -428,17 +426,17 @@ function renderizarRutaOSRM(osrmTripData, paradasOrdenadas) {
 
         li.addEventListener('click', (e) => {
             if (e.target.closest('.stop-propagation')) return;
-            const botonPestañaMapa = document.getElementById('nav-mapa');
-            if (botonPestañaMapa) botonPestañaMapa.click();
+            // 1. Cambiar forzosamente a la pestaña del mapa
+        const botonPestañaMapa = document.getElementById('nav-mapa');
+        if (botonPestañaMapa) botonPestañaMapa.click();
 
-            if (!isNaN(parada.lng) && !isNaN(parada.lat)) {
-                setTimeout(() => {
-                    map.flyTo({ center: [parseFloat(parada.lng), parseFloat(parada.lat)], zoom: 16, essential: true, speed: 1.2 });
-                    const claveBuscar = esInicio ? "START" : esFin ? "END" : `${parseFloat(parada.lng).toFixed(5)}_${parseFloat(parada.lat).toFixed(5)}`;
-                    const marcadorAsociado = diccionarioMarcadores[claveBuscar];
-                    if (marcadorAsociado) marcadorAsociado.togglePopup();
-                }, 150);
-            }
+        // 2. Darle tiempo al DOM para mostrarse, hacer resize, y ENTONCES enfocar la línea
+        setTimeout(() => {
+            map.resize();
+            const bounds = coordenadasLineaCompleta.reduce((acc, coord) => acc.extend(coord), new mapboxgl.LngLatBounds(coordenadasLineaCompleta[0], coordenadasLineaCompleta[0]));
+            map.fitBounds(bounds, { padding: 40 });
+        }, 150);
+    }
         });
 
         if (listaUl) listaUl.appendChild(li);
