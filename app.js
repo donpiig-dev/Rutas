@@ -147,8 +147,8 @@ document.getElementById('btn-optimizar').addEventListener('click', async () => {
     let viajeDataTrip = { distance: 0, duration: 0 };
     let exitoVroom = false;
 
-    try {
-        // 🌟 LA SOLUCIÓN DEFINITIVA: VROOM Express por defecto escucha los POST directamente en la raíz
+   try {
+        // 🔥 Apuntamos directamente a la raíz limpia '/' sincronizada por el nuevo Dockerfile
         const respuestaVroom = await fetch('https://vroom-railway-production-06c2.up.railway.app/', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -163,8 +163,7 @@ document.getElementById('btn-optimizar').addEventListener('click', async () => {
         }
 
         const resultadoVroom = JSON.parse(textoRespuesta);
-        // ... (Tu lógica de renderizado feliz para tus 100+ paradas)
-        // ... (resto de tu lógica de renderizado)
+        // ... (Tu renderizado de rutas de Mapbox)
 
         if (resultadoVroom.code === 0 && resultadoVroom.routes && resultadoVroom.routes.length > 0) {
             const pasosRuta = resultadoVroom.routes[0].steps;
