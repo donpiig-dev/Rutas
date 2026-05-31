@@ -121,13 +121,13 @@ document.getElementById('btn-optimizar').addEventListener('click', async () => {
         return !(parada.lng === ant.lng && parada.lat === ant.lat);
     });
 
-    // --- PASO 3: SOLICITAR OPTIMIZACIÓN LOGÍSTICA A VROOM EN CLOUD (RAILWAY) ---
+   // --- PASO 3: SOLICITAR OPTIMIZACIÓN LOGÍSTICA A VROOM EN CLOUD (RAILWAY) ---
     btn.innerText = "⏳ Optimizando más de 100 paradas en la nube...";
 
-    // Estructurar los "jobs" requeridos por la API de VROOM mapeando el índice temporal
+    // 🌟 CORRECCIÓN: Los IDs de VROOM deben empezar obligatoriamente en 1
     const jobsVroom = paradasFiltro.map((parada, index) => ({
-        id: index, 
-        location: [parada.lng, parada.lat],
+        id: index + 1, 
+        location: [parseFloat(parada.lng), parseFloat(parada.lat)],
         description: parada.cliente
     }));
 
@@ -136,8 +136,8 @@ document.getElementById('btn-optimizar').addEventListener('click', async () => {
             {
                 id: 1,
                 profile: 'car',
-                start: [startPoint.lng, startPoint.lat],
-                end: [endPoint.lng, endPoint.lat]
+                start: [parseFloat(startPoint.lng), parseFloat(startPoint.lat)],
+                end: [parseFloat(endPoint.lng), parseFloat(endPoint.lat)]
             }
         ],
         jobs: jobsVroom
@@ -148,26 +148,32 @@ document.getElementById('btn-optimizar').addEventListener('click', async () => {
     let exitoVroom = false;
 
     try {
-        // 🔥 Asegúrate de incluir el "/optimize" al final de tu URL real de Railway
-            const respuestaVroom = await fetch('https://vroom-railway-production-06c2.up.railway.app/optimize', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(cuerpoPeticionVroom)
-            });
+        const respuestaVroom = await fetch('https://vroom-railway-production-06c2.up.railway.app/optimize', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(cuerpoPeticionVroom)
+        });
 
-        const resultadoVroom = await respuestaVroom.json();
+        // Si el servidor nos escupe un HTML de error, lo atrapamos antes de que rompa el JSON parsing
+        const textoRespuesta = await respuestaVroom.text();
+        
+        if (!respuestaVroom.ok || textoRespuesta.includes('<!DOCTYPE')) {
+            console.error("El servidor VROOM devolvió un error HTML. Revisa los logs de Railway:", textoRespuesta);
+            throw new Error("Respuesta inválida del servidor.");
+        }
 
-        if (respuestaVroom.ok && resultadoVroom.code === 0 && resultadoVroom.routes && resultadoVroom.routes.length > 0) {
+        const resultadoVroom = JSON.parse(textoRespuesta);
+
+        if (resultadoVroom.code === 0 && resultadoVroom.routes && resultadoVroom.routes.length > 0) {
             const pasosRuta = resultadoVroom.routes[0].steps;
             
-            // Recopilar estadísticas de entrega calculadas
             viajeDataTrip.distance = resultadoVroom.routes[0].distance;
             viajeDataTrip.duration = resultadoVroom.routes[0].duration;
 
-            // Reconstruir el itinerario en el orden secuencial estricto dictado por VROOM
+            // Mapeamos de vuelta usando el ID corregido (-1)
             pasosRuta.forEach(paso => {
                 if (paso.type === 'job') {
-                    const paradaOriginal = paradasFiltro[paso.id];
+                    const paradaOriginal = paradasFiltro[paso.id - 1]; 
                     if (paradaOriginal) paradasOptimizadas.push(paradaOriginal);
                 }
             });
