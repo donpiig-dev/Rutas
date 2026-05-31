@@ -1,10 +1,11 @@
 // Configuración Inicial de Tokens
 mapboxgl.accessToken = 'pk.eyJ1Ijoic2ViYXN0MjEiLCJhIjoiY21wcHRpdDV3MGoxZTJycTZsbXhjaXY3ZyJ9.Orx8pP8h7z0D4KjSlXyBoQ';
-// 1. Inicializar el Mapa de Mapbox
+
+// 1. Inicializar el Mapa de Mapbox (Cambiado a Light Premium según tu diseño preferido)
 const map = new mapboxgl.Map({
     container: 'map',
-    style: 'mapbox://styles/mapbox/dark-v11', // Tema oscuro ideal para conductores
-    center: [-118.24368, 34.05223], // Madrid por defecto (Lng, Lat)
+    style: 'mapbox://styles/mapbox/light-v11', 
+    center: [-118.24368, 34.05223], 
     zoom: 5
 });
 
@@ -14,15 +15,16 @@ const btnMapa = document.getElementById('nav-mapa');
 const tabLista = document.getElementById('tab-lista');
 const tabMapa = document.getElementById('tab-mapa');
 
-btnLista.addEventListener('click', () => {
-    cambiarPestana(btnLista, btnMapa, tabLista, tabMapa);
-});
+if (btnLista && btnMapa) {
+    btnLista.addEventListener('click', () => {
+        cambiarPestana(btnLista, btnMapa, tabLista, tabMapa);
+    });
 
-btnMapa.addEventListener('click', () => {
-    cambiarPestana(btnMapa, btnLista, tabMapa, tabLista);
-    // Forzar a Mapbox a recalcular el tamaño del contenedor al hacerse visible
-    setTimeout(() => map.resize(), 100); 
-});
+    btnMapa.addEventListener('click', () => {
+        cambiarPestana(btnMapa, btnLista, tabMapa, tabLista);
+        setTimeout(() => map.resize(), 100); 
+    });
+}
 
 function cambiarPestana(activaBtn, inactivaBtn, activaTab, inactivaTab) {
     if (!activaBtn || !inactivaBtn || !activaTab || !inactivaTab) {
@@ -30,11 +32,11 @@ function cambiarPestana(activaBtn, inactivaBtn, activaTab, inactivaTab) {
         return; 
     }
 
-    activaBtn.classList.remove('text-gray-400');
-    activaBtn.classList.add('text-emerald-400');
+    activaBtn.classList.remove('text-slate-400');
+    activaBtn.classList.add('text-blue-600', 'font-bold');
 
-    inactivaBtn.classList.remove('text-emerald-400');
-    inactivaBtn.classList.add('text-gray-400');
+    inactivaBtn.classList.remove('text-blue-600', 'font-bold');
+    inactivaBtn.classList.add('text-slate-400');
 
     activaTab.classList.add('active');
     inactivaTab.classList.remove('active');
@@ -43,7 +45,7 @@ function cambiarPestana(activaBtn, inactivaBtn, activaTab, inactivaTab) {
 // Variable global para almacenar marcadores activos
 let marcadoresRuta = [];
 
-// 3. Lógica de Enrutamiento con OSRM + Parseo de Tabuladores (Excel/Sheets)
+// 3. Lógica de Enrutamiento con VROOM en Railway + Parseo de Tabuladores (Excel/Sheets)
 document.getElementById('btn-optimizar').addEventListener('click', async () => {
     const btn = document.getElementById('btn-optimizar');
     if (btn.disabled) return; 
@@ -51,7 +53,6 @@ document.getElementById('btn-optimizar').addEventListener('click', async () => {
     const texto = document.getElementById('input-direcciones').value.trim();
     if (!texto) return alert("Por favor, introduce la lista de datos.");
 
-    // Separamos el bloque de texto por saltos de línea
     const lineas = texto.split('\n').map(l => l.trim()).filter(l => l.length > 0);
     if (lineas.length < 2) return alert("Se necesitan al menos 2 registros para trazar la ruta.");
 
@@ -63,20 +64,14 @@ document.getElementById('btn-optimizar').addEventListener('click', async () => {
     // --- PASO 1: PARSEAR TABULADORES Y GEOCODIFICAR ---
     for (let i = 0; i < lineas.length; i++) {
         const lineaCompleta = lineas[i];
-        
-        // Separamos la línea usando expresiones regulares para detectar tabuladores o múltiples espacios
         const partes = lineaCompleta.split(/\t+/).map(p => p.trim());
-        
-        // Si la línea se pegó con espacios normales en vez de tabuladores, usamos el plan B (separar por más de 2 espacios seguidos)
         const columnas = partes.length >= 4 ? partes : lineaCompleta.split(/ {2,}/).map(p => p.trim());
 
-        // Asignación de variables según el orden solicitado (#, direccion, paquete, cliente)
         const numeroOrden   = columnas[0] || (i + 1);
         const direccionRaw  = columnas[1] || "";
         const paqueteId     = columnas[2] || "N/A";
         const nombreCliente = columnas[3] || "Cliente No Especificado";
 
-        // Si por alguna razón la columna de la dirección quedó vacía, saltamos la línea
         if (!direccionRaw) {
             console.warn(`Línea ${i + 1} ignorada: Falta el campo de dirección.`);
             continue;
@@ -92,7 +87,6 @@ document.getElementById('btn-optimizar').addEventListener('click', async () => {
             if (datosGeocode.features && datosGeocode.features.length > 0) {
                 const [lng, lat] = datosGeocode.features[0].center;
                 
-                // Estructuramos la metadata limpia de la parada
                 paradas.push({
                     lng: lng,
                     lat: lat,
@@ -101,7 +95,6 @@ document.getElementById('btn-optimizar').addEventListener('click', async () => {
                     paquete: paqueteId,
                     cliente: nombreCliente
                 });
-                console.log(datosGeocode.features)
             } else {
                 btn.disabled = false;
                 btn.innerText = "⚡ Convertir y Optimizar Ruta";
@@ -115,190 +108,189 @@ document.getElementById('btn-optimizar').addEventListener('click', async () => {
         }
     }
 
-  // --- PASO 2: ENVIAR COORDENADAS OPTIMIZADAS POR BLOQUES COMPACTOS ---
-    btn.innerText = "⏳ Agrupando rutas por cercanía...";
-
-    // 1. Obtener coordenadas de los inputs de inicio y fin
+    // --- PASO 2: OBTENER EXTREMOS Y LIMPIAR DUPLICADOS ---
     const startInput = document.getElementById('start-coords').value.trim().split(',');
     const endInput = document.getElementById('end-coords').value.trim().split(',');
 
     const startPoint = { lng: parseFloat(startInput[0]), lat: parseFloat(startInput[1]), numero: "START", cliente: "📍 Punto de Partida", paquete: "INICIO VIAJE" };
     const endPoint = { lng: parseFloat(endInput[0]), lat: parseFloat(endInput[1]), numero: "END", cliente: "🏁 Punto de Destino", paquete: "FIN VIAJE" };
 
-    // 2. Limpieza de duplicados estrictos del Excel
     let paradasFiltro = paradas.filter((parada, index) => {
         if (index === 0) return true;
         const ant = paradas[index - 1];
         return !(parada.lng === ant.lng && parada.lat === ant.lat);
     });
 
-    // 3. 🔥 ALGORITMO DE AGRUPACIÓN POR BLOQUE (VECINO MÁS CERCANO)
-    // Esto evita saltos locos de un lado de la ciudad al otro
-    let paradasPorBloque = [];
-    let copiaExcel = [...paradasFiltro];
-    let puntoActual = startPoint; // Comenzamos calculando desde el origen del chofer
+    // --- PASO 3: SOLICITAR OPTIMIZACIÓN LOGÍSTICA A VROOM EN CLOUD (RAILWAY) ---
+    btn.innerText = "⏳ Optimizando más de 100 paradas en la nube...";
 
-    function calcularDistanciaManhattan(p1, p2) {
-        // Cálculo rápido y eficiente para agrupación urbana
-        return Math.abs(p1.lng - p2.lng) + Math.abs(p1.lat - p2.lat);
-    }
+    // Estructurar los "jobs" requeridos por la API de VROOM mapeando el índice temporal
+    const jobsVroom = paradasFiltro.map((parada, index) => ({
+        id: index, 
+        location: [parada.lng, parada.lat],
+        description: parada.cliente
+    }));
 
-    while (copiaExcel.length > 0) {
-        let indiceMasCercano = 0;
-        let distanciaMinima = Infinity;
-
-        for (let i = 0; i < copiaExcel.length; i++) {
-            let dist = calcularDistanciaManhattan(puntoActual, copiaExcel[i]);
-            if (dist < distanciaMinima) {
-                distanciaMinima = dist;
-                indiceMasCercano = i;
+    const cuerpoPeticionVroom = {
+        vehicles: [
+            {
+                id: 1,
+                profile: 'car',
+                start: [startPoint.lng, startPoint.lat],
+                end: [endPoint.lng, endPoint.lat]
             }
-        }
+        ],
+        jobs: jobsVroom
+    };
 
-        // Extraemos la parada más cercana para construir el bloque compacto
-        let paradaSiguiente = copiaExcel.splice(indiceMasCercano, 1)[0];
-        paradasPorBloque.push(paradaSiguiente);
-        puntoActual = paradaSiguiente; // El siguiente punto busca desde esta última parada
+    let paradasOptimizadas = [];
+    let viajeDataTrip = { distance: 0, duration: 0 };
+    let exitoVroom = false;
+
+    try {
+        // 🔥 Reemplaza con tu URL real generada por el servicio de VROOM en Railway
+        const respuestaVroom = await fetch('https://vroom-railway-production-06c2.up.railway.app/optimize', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(cuerpoPeticionVroom)
+        });
+
+        const resultadoVroom = await respuestaVroom.json();
+
+        if (respuestaVroom.ok && resultadoVroom.code === 0 && resultadoVroom.routes && resultadoVroom.routes.length > 0) {
+            const pasosRuta = resultadoVroom.routes[0].steps;
+            
+            // Recopilar estadísticas de entrega calculadas
+            viajeDataTrip.distance = resultadoVroom.routes[0].distance;
+            viajeDataTrip.duration = resultadoVroom.routes[0].duration;
+
+            // Reconstruir el itinerario en el orden secuencial estricto dictado por VROOM
+            pasosRuta.forEach(paso => {
+                if (paso.type === 'job') {
+                    const paradaOriginal = paradasFiltro[paso.id];
+                    if (paradaOriginal) paradasOptimizadas.push(paradaOriginal);
+                }
+            });
+            exitoVroom = true;
+        }
+    } catch (errorVroom) {
+        console.error("Fallo el motor VROOM en la nube, activando plan de contingencia Manhattan...", errorVroom);
     }
 
-    // Aplicamos una微escala por si quedaron coordenadas idénticas para que OSRM no falle
-    paradasPorBloque = paradasPorBloque.map((parada, index) => {
-        let copia = { ...parada };
-        const esDuplicado = paradasPorBloque.slice(0, index).some(p => p.lng === copia.lng && p.lat === copia.lat);
-        if (esDuplicado) {
-            copia.lng += (Math.random() - 0.5) * 0.00003;
-            copia.lat += (Math.random() - 0.5) * 0.00003;
+    // --- PLAN B: Contingencia local si el servidor VROOM experimenta caídas ---
+    if (!exitoVroom) {
+        let paradasPorBloque = [];
+        let copiaExcel = [...paradasFiltro];
+        let puntoActual = startPoint;
+
+        while (copiaExcel.length > 0) {
+            let indiceMasCercano = 0;
+            let distanciaMinima = Infinity;
+            for (let i = 0; i < copiaExcel.length; i++) {
+                let dist = Math.abs(puntoActual.lng - copiaExcel[i].lng) + Math.abs(puntoActual.lat - copiaExcel[i].lat);
+                if (dist < distanciaMinima) {
+                    distanciaMinima = dist;
+                    indiceMasCercano = i;
+                }
+            }
+            let paradaSiguiente = copiaExcel.splice(indiceMasCercano, 1)[0];
+            paradasPorBloque.push(paradaSiguiente);
+            puntoActual = paradaSiguiente;
         }
-        return copia;
+        paradasOptimizadas = [...paradasPorBloque];
+    }
+
+    // --- PASO 4: RESCATE Y REINYECCIÓN DE MULTI-ENTREGAS (MISMO EDIFICIO) ---
+    let paradasFaltantes = paradas.filter(pOriginal => {
+        return !paradasOptimizadas.some(pO => String(pO.numero) === String(pOriginal.numero));
     });
 
-    // 4. ENSAMBLAMOS EL ITINERARIO DE CONDUCCIÓN COMPACTO
-    let loteCompletoViaje = [startPoint, ...paradasPorBloque, endPoint];
+    if (paradasFaltantes.length > 0) {
+        paradasFaltantes.forEach(pf => {
+            const idxAsociado = paradasOptimizadas.findIndex(pO => Math.abs(pO.lng - pf.lng) < 0.0001 && Math.abs(pO.lat - pf.lat) < 0.0001);
+            if (idxAsociado !== -1) {
+                paradasOptimizadas.splice(idxAsociado + 1, 0, pf);
+            } else {
+                paradasOptimizadas.push(pf);
+            }
+        });
+    }
 
-    let data = null;
-    let exito = false;
+    // Asegurar sándwich perfecto limpio de START/END residuales
+    paradasOptimizadas = paradasOptimizadas.filter(p => String(p.numero) !== "START" && String(p.numero) !== "END");
+    paradasOptimizadas.unshift(startPoint);
+    paradasOptimizadas.push(endPoint);
 
-    // Ejecutamos las estrategias de OSRM con el bloque pre-ordenado
-    for (let estrategia = 1; estrategia <= 2; estrategia++) {
-        if (exito) break;
+    // --- PASO 5: TRAZADO DE LÍNEA EN SUB-TRAMOS SEGUROS PARA 100+ PUNTOS ---
+    btn.innerText = "🗺️ Dibujando trazado de calles en el mapa...";
+    let coordenadasLineaCompleta = [];
 
-        const chainCoords = loteCompletoViaje.map(p => `${p.lng},${p.lat}`.replace(/\s+/g, '')).join(';');
-        let urlOSRM = "";
+    for (let i = 0; i < paradasOptimizadas.length - 1; i += 19) {
+        const segmento = paradasOptimizadas.slice(i, i + 20);
+        if (segmento.length < 2) break;
 
-        if (estrategia === 1) {
-            // Forzamos un radio controlado (250m) para que no busque rutas alternativas cruzando la autopista
-            const radiosString = loteCompletoViaje.map(() => "250").join(';');
-            urlOSRM = `https://map-production-c2c6.up.railway.app/trip/v1/driving/${chainCoords}?overview=full&geometries=polyline&source=first&destination=last&radiuses=${radiosString}`;
-        } 
-        else if (estrategia === 2) {
-            urlOSRM = `https://map-production-c2c6.up.railway.app/trip/v1/driving/${chainCoords}?overview=full&geometries=polyline&source=first&destination=last`;
-        }
+        const chainSegmento = segmento.map(p => `${p.lng},${p.lat}`).join(';');
+        const urlRoute = `https://map-production-c2c6.up.railway.app/route/v1/driving/${chainSegmento}?overview=full&geometries=geojson`;
 
         try {
-            console.log(`Enrutando bloque optimizado - Estrategia ${estrategia}`);
-            const res = await fetch(urlOSRM);
-            const respuestaJson = await res.json().catch(() => ({}));
-
-            if (res.ok && respuestaJson.code === "Ok" && respuestaJson.trips && respuestaJson.trips.length > 0) {
-                data = respuestaJson;
-                exito = true;
-                break;
+            const res = await fetch(urlRoute);
+            const dataRoute = await res.json();
+            if (dataRoute.code === "Ok" && dataRoute.routes && dataRoute.routes[0]) {
+                coordenadasLineaCompleta.push(...dataRoute.routes[0].geometry.coordinates);
+                // Si usamos la contingencia, sumamos las métricas estimadas aquí
+                if (!exitoVroom) {
+                    viajeDataTrip.distance += dataRoute.routes[0].distance;
+                    viajeDataTrip.duration += dataRoute.routes[0].duration;
+                }
             }
-        } catch (error) {
-            console.error(`Error en enrutamiento por bloques:`, error);
+        } catch (e) {
+            console.warn("Subsegmento de línea omitido por tramo técnico", e);
         }
     }
 
-    // --- PASO 3: REORGANIZAR RESPUESTA PARA EL RENDERIZADOR (FORZAR REINYECCIÓN TOTAL) ---
-    try {
-        if (exito && data && data.trips && data.trips.length > 0 && data.waypoints) {
-            
-            // 1. Mapeamos la respuesta de OSRM vinculando el orden óptimo de visita
-            let mapeoWaypoints = data.waypoints.map(wp => ({
-                indiceOptimo: wp.trips_index,
-                indiceOriginal: wp.waypoint_index
-            }));
-
-            // Ordenar de menor a mayor según la ruta de manejo real (0, 1, 2...)
-            mapeoWaypoints.sort((a, b) => a.indiceOptimo - b.indiceOptimo);
-
-            // 2. Extraer los puntos que OSRM sí pudo procesar en orden
-            let paradasOptimizadas = [];
-            mapeoWaypoints.forEach(item => {
-                const punto = loteCompletoViaje[item.indiceOriginal];
-                if (punto) paradasOptimizadas.push(punto);
-            });
-
-            // 3. 🔥 RESCATE MILIMÉTRICO: Forzar la aparición de las 53 direcciones del Excel
-            // Si OSRM combinó o ignoró paradas por estar en el mismo edificio o bloque,
-            // las buscamos en el archivo original del Excel y las metemos a la fuerza.
-            let paradasFaltantes = paradas.filter(pOriginal => {
-                return !paradasOptimizadas.some(pO => String(pO.numero) === String(pOriginal.numero));
-            });
-
-            if (paradasFaltantes.length > 0) {
-                console.warn(`Reinyectando ${paradasFaltantes.length} paradas duplicadas u omitidas por OSRM.`);
-                
-                // Las acomodamos de forma inteligente: buscamos si otra parada comparte sus coordenadas
-                // y la metemos justo al lado de ella en la lista de visita.
-                paradasFaltantes.forEach(pf => {
-                    const idxAsociado = paradasOptimizadas.findIndex(pO => Math.abs(pO.lng - pf.lng) < 0.0001 && Math.abs(pO.lat - pf.lat) < 0.0001);
-                    if (idxAsociado !== -1) {
-                        paradasOptimizadas.splice(idxAsociado + 1, 0, pf);
-                    } else {
-                        // Si no comparte edificio con nadie, la mandamos al final antes del destino
-                        const indexFin = paradasOptimizadas.findIndex(p => String(p.numero) === "END");
-                        if (indexFin !== -1) {
-                            paradasOptimizadas.splice(indexFin, 0, pf);
-                        } else {
-                            paradasOptimizadas.push(pf);
-                        }
-                    }
-                });
-            }
-
-            // 4. LIMPIEZA Y ENCAPSULAMIENTO ESTRICTO DE EXTREMOS
-            // Quitamos cualquier duplicado residual de START/END y los fijamos magnéticamente
-            paradasOptimizadas = paradasOptimizadas.filter(p => String(p.numero) !== "START" && String(p.numero) !== "END");
-            
-            // Forzamos el sándwich perfecto
-            paradasOptimizadas.unshift(startPoint);
-            paradasOptimizadas.push(endPoint);
-
-            console.log(`🚀 Renderizando lote final de entrega. Total paradas en interfaz: ${paradasOptimizadas.length}`);
-
-            // Enviar el listado corregido al mapa y a las tarjetas laterales
-            renderizarRutaOSRM(data.trips[0], paradasOptimizadas);
-            
+    if (coordenadasLineaCompleta.length > 0) {
+        const geojson = {
+            "type": "Feature",
+            "geometry": { "type": "LineString", "coordinates": coordenadasLineaCompleta }
+        };
+        if (map.getSource('route')) {
+            map.getSource('route').setData(geojson);
         } else {
-            alert("No se pudo estructurar un viaje optimizado continuo con los puntos de control.");
+            map.addSource('route', { 'type': 'geojson', 'data': geojson });
+            map.addLayer({
+                'id': 'route',
+                'type': 'line',
+                'source': 'route',
+                'paint': { 'line-color': '#2563eb', 'line-width': 4.5, 'line-opacity': 0.85 }
+            });
         }
-    } catch (err) {
-        console.error("Error crítico en ordenamiento e indexación:", err);
-        alert("Ocurrió un problema al procesar el listado de las paradas.");
-    } finally {
-        btn.disabled = false;
-        btn.innerText = "⚡ Convertir y Optimizar Ruta";
+        
+        const bounds = coordenadasLineaCompleta.reduce((acc, coord) => acc.extend(coord), new mapboxgl.LngLatBounds(coordenadasLineaCompleta[0], coordenadasLineaCompleta[0]));
+        map.fitBounds(bounds, { padding: 40 });
     }
+
+    // Enviar el listado ordenado por el backend al renderizador de interfaz
+    console.log(`🚀 Renderizando lote final de entrega. Total paradas en interfaz: ${paradasOptimizadas.length}`);
+    renderizarRutaOSRM(viajeDataTrip, paradasOptimizadas);
+    
+    btn.disabled = false;
+    btn.innerText = "⚡ Convertir y Optimizar Ruta";
 });
 
-// 4. Renderizar resultados optimizados en pantalla y mapa
+// 4. Renderizar resultados optimizados en pantalla y mapa (Estilo Clean Light Premium)
 function renderizarRutaOSRM(osrmTripData, paradasOrdenadas) {
     const listaUl = document.getElementById('lista-ordenada');
     if (listaUl) listaUl.innerHTML = ''; 
 
-    // Limpiar marcadores antiguos del mapa
-    if (typeof marcadoresRuta !== 'undefined') {
+    if (typeof marcadoresRuta !== 'undefined' && marcadoresRuta.length > 0) {
         marcadoresRuta.forEach(marker => marker.remove());
         marcadoresRuta = [];
     } else {
         window.marcadoresRuta = [];
     }
 
-    // 🔥 Objeto global o temporal para mapear las coordenadas a los marcadores reales de Mapbox
     const diccionarioMarcadores = {};
 
-    // Calcular estadísticas globales reales
     const contenedorStats = document.getElementById('stats-ruta');
     const txtTiempo = document.getElementById('stat-tiempo');
     const txtMillas = document.getElementById('stat-millas');
@@ -316,7 +308,6 @@ function renderizarRutaOSRM(osrmTripData, paradasOrdenadas) {
     let contadorEntregas = 0;
     const mapaBurbujas = {};
 
-    // 1. PRIMERA PASADA: Agrupar los datos de texto para las burbujas
     paradasOrdenadas.forEach((parada) => {
         if (!parada || String(parada.numero) === "START" || String(parada.numero) === "END") return;
         const claveCoord = `${parseFloat(parada.lng).toFixed(5)}_${parseFloat(parada.lat).toFixed(5)}`;
@@ -331,30 +322,28 @@ function renderizarRutaOSRM(osrmTripData, paradasOrdenadas) {
         });
     });
 
-    // 2. SEGUNDA PASADA: Dibujar las tarjetas, botones de grupo y los pines en el mapa
     paradasOrdenadas.forEach((parada, idx) => {
         if (!parada) return; 
 
         const esInicio = String(parada.numero) === "START";
         const esFin = String(parada.numero) === "END";
         
-        // Colores adaptados a la paleta Dark/Orange
-        let colorBorde = "border-orange-500"; 
-        let badgeClase = "bg-orange-900/40 text-orange-400"; 
-        let colorPin = "#f97316"; 
+        let colorBorde = "border-emerald-500"; 
+        let badgeClase = "bg-emerald-50 text-emerald-700 border border-emerald-100"; 
+        let colorPin = "#059669"; 
         let textoOrdenVisual = "";
         let esMultiEntrega = false;
         let claveCoordActual = "";
 
         if (esInicio) {
-            colorBorde = "border-gray-500";
-            badgeClase = "bg-gray-800 text-gray-300";
-            colorPin = "#6b7280"; 
+            colorBorde = "border-blue-500";
+            badgeClase = "bg-blue-50 text-blue-600 border border-blue-100";
+            colorPin = "#2563eb"; 
             textoOrdenVisual = "🛫 Salida";
         } else if (esFin) {
-            colorBorde = "border-gray-700";
-            badgeClase = "bg-gray-900 text-gray-500";
-            colorPin = "#374151"; 
+            colorBorde = "border-purple-500";
+            badgeClase = "bg-purple-50 text-purple-600 border border-purple-100";
+            colorPin = "#7c3aed"; 
             textoOrdenVisual = "🏁 Fin";
         } else {
             contadorEntregas++;
@@ -365,66 +354,45 @@ function renderizarRutaOSRM(osrmTripData, paradasOrdenadas) {
 
             if (paquetesEnEstaDireccion.length >= 2) {
                 esMultiEntrega = true;
-                colorBorde = "border-yellow-500";
-                badgeClase = "bg-yellow-900/40 text-yellow-400";
-                colorPin = "#eab308"; 
+                colorBorde = "border-amber-500";
+                badgeClase = "bg-amber-50 text-amber-700 border border-amber-200";
+                colorPin = "#d97706"; 
             }
 
-           
-            // 🔥 LÓGICA DE AGRUPACIÓN: NAVEGACIÓN GPS DIRECTA FORZADA PARA AMBOS MAPAS 🔥
             if ((contadorEntregas - 1) % 10 === 0) {
-                
-                // Filtramos solo las entregas reales (sin contar START ni END)
                 const entregasSolo = paradasOrdenadas.filter(p => String(p.numero) !== "START" && String(p.numero) !== "END");
-                // Extraemos las 10 entregas de este bloque
                 const entregasLote = entregasSolo.slice(contadorEntregas - 1, contadorEntregas - 1 + 10);
                 
-                // --- 1. LIMPIEZA Y PREPARACIÓN DE DIRECCIONES ---
                 const direccionesLimpias = entregasLote.map(p => {
                     let texto = p.direccionOficial || p.direccion || "Direccion Desconocida";
-                    // Limpieza estándar: quitar país y borrar comas
                     texto = texto.replace(/,?\s*united states\s*$/gi, '').replace(/,?\s*usa\s*$/gi, '').replace(/,/g, '');
                     return encodeURIComponent(texto).replace(/%20/g, '+');
                 });
 
-                // --- 2. LINK APPLE MAPS (NATIVO - LISTO PARA NAVEGAR) ---
                 const destinoApple = direccionesLimpias[direccionesLimpias.length - 1];
                 const waypointsApple = direccionesLimpias.slice(0, -1).map(dir => `waypoint=${dir}`).join('&');
                 const urlAppleMaps = `maps://maps.apple.com/directions?mode=driving&origin=Current+Location&destination=${destinoApple}${waypointsApple ? '&' + waypointsApple : ''}`;
 
-                // --- 3. LINK GOOGLE MAPS (PROTOCOLO NATIVO DE NAVEGACIÓN INMEDIATA) ---
                 const primerDestinoGoogle = direccionesLimpias[0];
-                // Las paradas de la 2 a la 10 se añaden de forma nativa a la cola del itinerario
                 const paradasExtrasGoogle = direccionesLimpias.slice(1).join('|');
-                
-                // 🧭 El parámetro google.navigation:q= arranca el GPS al instante y desbloquea el viaje por etapas
                 const urlGoogleMaps = `google.navigation:q=${primerDestinoGoogle}&waypoints=${paradasExtrasGoogle}&mode=d`;
                 
                 const numeroLote = Math.floor((contadorEntregas - 1) / 10) + 1;
                 const entregaFin = (contadorEntregas - 1) + entregasLote.length;
 
-                // --- 4. CONSTRUCCIÓN DE LA INTERFAZ CON DOBLE BOTÓN ---
                 const liGrupo = document.createElement('li');
-                liGrupo.className = "bg-gray-950 p-4 rounded-xl border border-gray-800 mt-6 mb-3 shadow-lg relative overflow-hidden";
+                liGrupo.className = "bg-white p-4 rounded-xl border border-slate-100 mt-4 mb-3 shadow-sm relative overflow-hidden flex flex-col gap-3";
                 liGrupo.innerHTML = `
-                    <div class="absolute left-0 top-0 bottom-0 w-1.5 bg-gradient-to-b from-blue-500 to-green-500"></div>
-                    <div class="flex justify-between items-center mb-4 pl-2">
-                        <span class="text-white font-extrabold text-sm uppercase tracking-wider">📦 Lote de Ruta ${numeroLote}</span>
-                        <span class="text-xs bg-gray-900 text-gray-400 border border-gray-800 px-2 py-1 rounded-md font-mono">
-                            Entregas ${contadorEntregas} a ${entregaFin}
+                    <div class="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-blue-500 to-emerald-500"></div>
+                    <div class="flex justify-between items-center pl-2">
+                        <span class="text-slate-800 font-bold text-xs uppercase tracking-wide">📦 Lote de Ruta ${numeroLote}</span>
+                        <span class="text-[10px] bg-slate-50 text-slate-500 border border-slate-100 px-2 py-0.5 rounded-md font-mono">
+                            Paradas ${contadorEntregas} a ${entregaFin}
                         </span>
                     </div>
-                    
                     <div class="flex gap-2 w-full">
-                        <a href="${urlAppleMaps}" target="_blank" 
-                           class="flex-1 bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white font-bold py-3 px-2 rounded-lg transition-all duration-200 flex justify-center items-center gap-1.5 text-xs shadow-[0_0_15px_rgba(37,99,235,0.15)] text-center">
-                            🧭 Apple Maps
-                        </a>
-                        
-                        <a href="${urlGoogleMaps}" 
-                           class="flex-1 bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white font-bold py-3 px-2 rounded-lg transition-all duration-200 flex justify-center items-center gap-1.5 text-xs shadow-[0_0_15px_rgba(16,185,129,0.15)] text-center">
-                            🗺️ Google Maps
-                        </a>
+                        <a href="${urlAppleMaps}" target="_blank" class="flex-1 bg-blue-50 hover:bg-blue-100 text-blue-600 font-bold py-2.5 rounded-lg transition text-xs text-center stop-propagation no-underline">🧭 Apple Maps</a>
+                        <a href="${urlGoogleMaps}" class="flex-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold py-2.5 rounded-lg transition text-xs text-center stop-propagation no-underline">🗺️ Google Maps</a>
                     </div>
                 `;
                 if (listaUl) listaUl.appendChild(liGrupo);
@@ -436,199 +404,93 @@ function renderizarRutaOSRM(osrmTripData, paradasOrdenadas) {
         const nomCliente = parada.cliente || "Cliente Sin Nombre";
         const dirOficial = parada.direccionOficial || parada.direccion || "Dirección no disponible";
 
-        // A. Renderizar tarjeta lateral (Actualizada al diseño oscuro)
         const li = document.createElement('li');
-        li.className = `flex justify-between items-center bg-gray-950 p-3 rounded-lg border-l-4 ${colorBorde} cursor-pointer hover:bg-gray-900 transition mb-2`;
+        li.className = `flex justify-between items-center bg-white p-4 rounded-xl border-l-4 ${colorBorde} border-t border-r border-b border-slate-100 shadow-sm hover:bg-slate-50/60 transition cursor-pointer mb-2 select-none`;
         
+        const claseTextoOrden = colorPin === "#d97706" ? "text-amber-600" : esInicio ? "text-blue-600" : esFin ? "text-purple-600" : "text-emerald-600";
+
         li.innerHTML = `
-            <div class="flex-1 min-w-0 pr-2 flex flex-col gap-0.5">
-                <div class="flex items-center gap-1.5">
-                    ${!esInicio && !esFin ? `<span class="text-[10px] font-bold px-1.5 py-0.5 rounded ${badgeClase}">Fila: #${numExcel}</span>` : ''}
-                    <span class="text-xs ${colorPin === "#eab308" ? "text-yellow-400" : (esInicio || esFin ? "text-gray-400" : "text-orange-500")} font-bold font-mono">
-                        ${esInicio || esFin ? textoOrdenVisual : `Orden: ${textoOrdenVisual}`}
+            <div class="flex-1 min-w-0 pr-3 flex flex-col gap-0.5">
+                <div class="flex flex-wrap items-center gap-1.5 mb-1">
+                    ${!esInicio && !esFin ? `<span class="text-[10px] font-bold px-2 py-0.5 rounded-md tracking-wide ${badgeClase}">Fila: #${numExcel}</span>` : ''}
+                    <span class="text-xs font-bold font-mono tracking-wide ${claseTextoOrden}">
+                        ${esInicio || esFin ? textoOrdenVisual : `📍 Parada #${textoOrdenVisual}`}
                     </span>
                 </div>
-                ${!esInicio && !esFin ? `<div class="text-xs text-gray-500 font-medium mt-1">📦 Pqt: ${idPaquete}</div>` : ''}
-                <span class="text-xs md:text-sm font-semibold text-gray-200 truncate mt-0.5">👤 ${nomCliente}</span>
-                <span class="text-[11px] text-gray-500 truncate">📍 ${dirOficial}</span>
+                <span class="text-sm font-bold text-slate-900 tracking-tight truncate">👤 ${nomCliente}</span>
+                <span class="text-[11px] text-slate-500 font-medium truncate">📍 ${dirOficial}</span>
+                ${!esInicio && !esFin ? `<div class="text-[10px] font-medium text-slate-400 mt-0.5">ID Paquete: <span class="text-slate-600 font-mono font-semibold">${idPaquete}</span></div>` : ''}
             </div>
             <a href="https://www.google.com/maps/dir/?api=1&destination=${parada.lat},${parada.lng}" target="_blank" 
-               class="bg-gray-800 hover:bg-orange-500 hover:text-black text-gray-300 text-xs px-3 py-2 rounded-md font-bold transition-colors no-underline flex items-center gap-1 shrink-0 h-fit stop-propagation border border-gray-700 hover:border-orange-500">
+               class="bg-slate-900 hover:bg-slate-800 text-white text-xs px-3 py-2 rounded-lg font-semibold transition shrink-0 h-fit stop-propagation no-underline active:scale-95">
                 Individual
             </a>
         `;
 
-        // Evento de click para centrar en el mapa
         li.addEventListener('click', (e) => {
             if (e.target.closest('.stop-propagation')) return;
             const botonPestañaMapa = document.getElementById('nav-mapa');
             if (botonPestañaMapa) botonPestañaMapa.click();
 
             if (!isNaN(parada.lng) && !isNaN(parada.lat)) {
-                map.flyTo({ center: [parseFloat(parada.lng), parseFloat(parada.lat)], zoom: 16, essential: true, speed: 1.2 });
-                const claveBuscar = esInicio ? "START" : esFin ? "END" : `${parseFloat(parada.lng).toFixed(5)}_${parseFloat(parada.lat).toFixed(5)}`;
-                const marcadorAsociado = diccionarioMarcadores[claveBuscar];
-                if (marcadorAsociado) marcadorAsociado.togglePopup();
+                setTimeout(() => {
+                    map.flyTo({ center: [parseFloat(parada.lng), parseFloat(parada.lat)], zoom: 16, essential: true, speed: 1.2 });
+                    const claveBuscar = esInicio ? "START" : esFin ? "END" : `${parseFloat(parada.lng).toFixed(5)}_${parseFloat(parada.lat).toFixed(5)}`;
+                    const marcadorAsociado = diccionarioMarcadores[claveBuscar];
+                    if (marcadorAsociado) marcadorAsociado.togglePopup();
+                }, 150);
             }
         });
 
         if (listaUl) listaUl.appendChild(li);
 
-        // -- CONTINÚA TU CÓDIGO ORIGINAL DESDE AQUÍ --
-        // B. RENDERIZADO DEL PIN ÚNICO...
-
-        // B. RENDERIZADO DEL PIN ÚNICO (Control de duplicación)
         let claveDiccionario = esInicio ? "START" : esFin ? "END" : `${parseFloat(parada.lng).toFixed(5)}_${parseFloat(parada.lat).toFixed(5)}`;
         
         if (!esInicio && !esFin) {
             const yaExisteMarcador = marcadoresRuta.some(m => {
                 const coord = m.getLngLat();
-                return coord.lng.toFixed(5) === parseFloat(parada.lng).toFixed(5) && 
-                       coord.lat.toFixed(5) === parseFloat(parada.lat).toFixed(5);
+                return coord.lng.toFixed(5) === parseFloat(parada.lng).toFixed(5) && coord.lat.toFixed(5) === parseFloat(parada.lat).toFixed(5);
             });
-            
-            // Si ya existe en el mapa, no volvemos a dibujar el pin, pero la tarjeta sí se creó arriba
             if (yaExisteMarcador) return; 
         }
 
-        // C. Crear el elemento visual del PIN
         const el = document.createElement('div');
         el.className = 'custom-marker';
         el.style.backgroundColor = colorPin;
         el.style.width = esInicio || esFin ? '32px' : '26px'; 
         el.style.height = esInicio || esFin ? '32px' : '26px';
         el.style.borderRadius = '50%';
-        el.style.border = '2px solid #ffffff';
+        el.style.border = '2.5px solid #ffffff';
         el.style.display = 'flex';
         el.style.alignItems = 'center';
         el.style.justifyContent = 'center';
-        el.style.color = colorPin === "#f59e0b" ? "#000000" : "#ffffff"; 
-        el.style.fontSize = esInicio || esFin ? '9px' : '11px';
-        el.style.fontWeight = 'bold';
-        el.style.boxShadow = '0 2px 5px rgba(0,0,0,0.5)';
+        el.style.color = '#ffffff'; 
+        el.style.fontSize = esInicio || esFin ? '10px' : '11px';
+        el.style.fontWeight = '700';
+        el.style.boxShadow = '0 4px 8px rgba(15, 23, 42, 0.15)';
         el.innerText = esMultiEntrega ? `${textoOrdenVisual}+` : textoOrdenVisual;
 
-        // D. CONSTRUCCIÓN DE LA BURBUJA INTERACTIVA UNIFICADA
         let HTMLBurbuja = "";
         if (esInicio || esFin) {
-            HTMLBurbuja = `
-                <div class="p-1 text-gray-900 font-sans">
-                    <div class="font-bold text-sm text-gray-800">${textoOrdenVisual}</div>
-                    <div class="text-xs text-gray-600">📍 ${dirOficial}</div>
-                </div>
-            `;
+            HTMLBurbuja = `<div class="p-1 text-slate-800 font-sans"><div class="font-bold text-sm">${textoOrdenVisual}</div><div class="text-xs text-slate-500">📍 ${dirOficial}</div></div>`;
         } else if (esMultiEntrega) {
             const listadoPaquetes = mapaBurbujas[claveCoordActual] || [];
             let htmlItems = listadoPaquetes.map((p, i) => `
-                <div class="${i > 0 ? 'border-t border-gray-100 pt-1.5 mt-1.5' : ''}">
-                    <div class="flex justify-between text-[10px] font-bold text-amber-600 mb-0.5">
-                        <span>📦 PAQUETE: ${p.idPaquete}</span>
-                        <span>Fila Excel: #${p.numExcel}</span>
-                    </div>
-                    <div class="font-bold text-xs text-gray-800">👤 ${p.nomCliente}</div>
+                <div class="${i > 0 ? 'border-t border-slate-100 pt-1.5 mt-1.5' : ''}">
+                    <div class="flex justify-between text-[10px] font-bold text-amber-600 mb-0.5"><span>📦 PAQUETE: ${p.idPaquete}</span><span>Fila: #${p.numExcel}</span></div>
+                    <div class="font-bold text-xs text-slate-800">👤 ${p.nomCliente}</div>
                 </div>
             `).join('');
-
-            HTMLBurbuja = `
-                <div class="p-2 text-gray-900 font-sans min-w-[220px]">
-                    <div class="text-[10px] font-extrabold text-center bg-yellow-100 text-yellow-800 py-1 rounded mb-2 uppercase tracking-wide">
-                        ⚠️ ¡DIRECCIÓN CON ${listadoPaquetes.length} ENTREGAS!
-                    </div>
-                    <div class="max-h-[180px] overflow-y-auto pr-1">
-                        ${htmlItems}
-                    </div>
-                    <div class="text-[11px] text-gray-500 border-t border-gray-200 pt-1.5 mt-2 italic truncate">
-                        📍 ${dirOficial}
-                    </div>
-                </div>
-            `;
+            HTMLBurbuja = `<div class="p-2 font-sans min-w-[220px]"><div class="text-[10px] font-extrabold text-center bg-amber-50 text-amber-800 py-1 rounded mb-2 border border-amber-200">⚠️ ¡DIRECCIÓN CON ${listadoPaquetes.length} ENTREGAS!</div><div class="max-h-[180px] overflow-y-auto pr-1">${htmlItems}</div><div class="text-[11px] text-slate-400 border-t border-slate-100 pt-1.5 mt-2 truncate">📍 ${dirOficial}</div></div>`;
         } else {
-            HTMLBurbuja = `
-                <div class="p-1 text-gray-900 font-sans">
-                    <div class="text-[10px] font-bold text-emerald-600 uppercase tracking-wide mb-0.5">
-                        ¡Parada Nº ${textoOrdenVisual}! • Paquete: ${idPaquete}
-                    </div>
-                    <div class="font-bold text-sm border-b border-gray-200 pb-1 mb-1 text-gray-800">
-                        👤 ${nomCliente}
-                    </div>
-                    <div class="text-xs text-gray-600">
-                        Excel Fila: #${numExcel}<br>
-                        📍 ${dirOficial}
-                    </div>
-                </div>
-            `;
+            HTMLBurbuja = `<div class="p-1 font-sans"><div class="text-[10px] font-bold text-emerald-600 uppercase mb-0.5">Parada Nº ${textoOrdenVisual} • Paquete: ${idPaquete}</div><div class="font-bold text-sm border-b border-slate-100 pb-1 mb-1 text-slate-800">👤 ${nomCliente}</div><div class="text-xs text-slate-500">Excel: #${numExcel}<br>📍 ${dirOficial}</div></div>`;
         }
 
-        // E. Estampar el marcador final en Mapbox
         if (!isNaN(parada.lng) && !isNaN(parada.lat)) {
             const popup = new mapboxgl.Popup({ offset: 25 }).setHTML(HTMLBurbuja);
-            const marcador = new mapboxgl.Marker(el)
-                .setLngLat([parseFloat(parada.lng), parseFloat(parada.lat)])
-                .setPopup(popup)
-                .addTo(map);
-
+            const marcador = new mapboxgl.Marker(el).setLngLat([parseFloat(parada.lng), parseFloat(parada.lat)]).setPopup(popup).addTo(map);
             marcadoresRuta.push(marcador);
-            
-            // 🔥 Guardamos la referencia de este marcador en nuestro diccionario temporal
             diccionarioMarcadores[claveDiccionario] = marcador;
         }
     });
-
-    // 4. Pintado directo de la línea de ruta uniendo los marcadores
-    try {
-        const coordenadasSeguras = paradasOrdenadas
-            .filter(p => p && !isNaN(p.lng) && !isNaN(p.lat))
-            .map(p => [parseFloat(p.lng), parseFloat(p.lat)]);
-
-        if (coordenadasSeguras && coordenadasSeguras.length > 0) {
-            const geojson = {
-                "type": "Feature",
-                "properties": {},
-                "geometry": { "type": "LineString", "coordinates": coordenadasSeguras }
-            };
-
-            if (map.getSource('route')) {
-                map.getSource('route').setData(geojson);
-            } else {
-                map.addSource('route', { 'type': 'geojson', 'data': geojson });
-                map.addLayer({
-                    'id': 'route',
-                    'type': 'line',
-                    'source': 'route',
-                    'layout': { 'line-join': 'round', 'line-cap': 'round' },
-                    'paint': {
-                        'line-color': '#3b82f6',
-                        'line-width': 5,
-                        'line-opacity': 0.85
-                    }
-                });
-            }
-        }
-    } catch (err) {
-        console.error("Error en trazado de línea:", err);
-    }
-}
-
-// 5. Pintar la línea GeoJSON en Mapbox y ajustar la cámara
-function dibujarRuta(coordenadas) {
-    if (map.getSource('ruta-optimizada')) {
-        map.getSource('ruta-optimizada').setData({
-            'type': 'Feature',
-            'geometry': { 'type': 'LineString', 'coordinates': coordenadas }
-        });
-    } else {
-        map.addSource('ruta-optimizada', {
-            'type': 'geojson',
-            'data': { 'type': 'Feature', 'geometry': { 'type': 'LineString', 'coordinates': coordenadas } }
-        });
-        map.addLayer({
-            'id': 'ruta-optimizada',
-            'type': 'line',
-            'source': 'ruta-optimizada',
-            'paint': { 'line-color': '#10b981', 'line-width': 5, 'line-opacity': 0.85 }
-        });
-    }
-
-    const bounds = coordenadas.reduce((acc, coord) => acc.extend(coord), new mapboxgl.LngLatBounds(coordenadas[0], coordenadas[0]));
-    map.fitBounds(bounds, { padding: 50 });
 }
