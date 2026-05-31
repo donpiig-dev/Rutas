@@ -121,23 +121,23 @@ document.getElementById('btn-optimizar').addEventListener('click', async () => {
         return !(parada.lng === ant.lng && parada.lat === ant.lat);
     });
 
-   // --- PASO 3: SOLICITAR OPTIMIZACIÓN LOGÍSTICA A VROOM EN CLOUD (RAILWAY) ---
+    // --- PASO 3: SOLICITAR OPTIMIZACIÓN LOGÍSTICA A VROOM EN CLOUD (RAILWAY) ---
     btn.innerText = "⏳ Optimizando más de 100 paradas en la nube...";
 
-    // 🌟 CORRECCIÓN: Los IDs de VROOM deben empezar obligatoriamente en 1
+    // Estructuramos los "jobs" exactamente como lo espera el JSON limpio de VROOM
     const jobsVroom = paradasFiltro.map((parada, index) => ({
-        id: index + 1, 
-        location: [parseFloat(parada.lng), parseFloat(parada.lat)],
-        description: parada.cliente
+        id: index, 
+        location: [parada.lng, parada.lat]
     }));
 
+    // Construimos el cuerpo idéntico al payload exitoso de tu Postman
     const cuerpoPeticionVroom = {
         vehicles: [
             {
-                id: 1,
-                profile: 'car',
-                start: [parseFloat(startPoint.lng), parseFloat(startPoint.lat)],
-                end: [parseFloat(endPoint.lng), parseFloat(endPoint.lat)]
+                id: 0,
+                profile: "driving", // El perfil correcto que acepta OSRM público
+                start: [startPoint.lng, startPoint.lat],
+                end: [endPoint.lng, endPoint.lat]
             }
         ],
         jobs: jobsVroom
@@ -147,34 +147,26 @@ document.getElementById('btn-optimizar').addEventListener('click', async () => {
     let viajeDataTrip = { distance: 0, duration: 0 };
     let exitoVroom = false;
 
-   try {
-        // 🔥 Apuntamos directamente a la raíz limpia '/' sincronizada por el nuevo Dockerfile
-        const respuestaVroom = await fetch('https://vroom-railway-production-06c2.up.railway.app/', {
+    try {
+        const respuestaVroom = await fetch('https://vroom-railway-production-06c2.up.railway.app/optimize', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(cuerpoPeticionVroom)
         });
 
-        const textoRespuesta = await respuestaVroom.text();
-        
-        if (!respuestaVroom.ok || textoRespuesta.includes('<!DOCTYPE')) {
-            console.error("El servidor VROOM devolvió un error HTML. Revisa los logs de Railway:", textoRespuesta);
-            throw new Error("Respuesta inválida del servidor.");
-        }
+        const resultadoVroom = await respuestaVroom.json();
 
-        const resultadoVroom = JSON.parse(textoRespuesta);
-        // ... (Tu renderizado de rutas de Mapbox)
-
-        if (resultadoVroom.code === 0 && resultadoVroom.routes && resultadoVroom.routes.length > 0) {
+        if (respuestaVroom.ok && resultadoVroom.code === 0 && resultadoVroom.routes && resultadoVroom.routes.length > 0) {
             const pasosRuta = resultadoVroom.routes[0].steps;
             
+            // Recopilar estadísticas de entrega calculadas
             viajeDataTrip.distance = resultadoVroom.routes[0].distance;
             viajeDataTrip.duration = resultadoVroom.routes[0].duration;
 
-            // Mapeamos de vuelta usando el ID corregido (-1)
+            // Reconstruir el itinerario en el orden secuencial estricto dictado por VROOM
             pasosRuta.forEach(paso => {
                 if (paso.type === 'job') {
-                    const paradaOriginal = paradasFiltro[paso.id - 1]; 
+                    const paradaOriginal = paradasFiltro[paso.id];
                     if (paradaOriginal) paradasOptimizadas.push(paradaOriginal);
                 }
             });
@@ -244,7 +236,6 @@ document.getElementById('btn-optimizar').addEventListener('click', async () => {
             const dataRoute = await res.json();
             if (dataRoute.code === "Ok" && dataRoute.routes && dataRoute.routes[0]) {
                 coordenadasLineaCompleta.push(...dataRoute.routes[0].geometry.coordinates);
-                // Si usamos la contingencia, sumamos las métricas estimadas aquí
                 if (!exitoVroom) {
                     viajeDataTrip.distance += dataRoute.routes[0].distance;
                     viajeDataTrip.duration += dataRoute.routes[0].duration;
@@ -276,7 +267,6 @@ document.getElementById('btn-optimizar').addEventListener('click', async () => {
         map.fitBounds(bounds, { padding: 40 });
     }
 
-    // Enviar el listado ordenado por el backend al renderizador de interfaz
     console.log(`🚀 Renderizando lote final de entrega. Total paradas en interfaz: ${paradasOptimizadas.length}`);
     renderizarRutaOSRM(viajeDataTrip, paradasOptimizadas);
     
@@ -428,7 +418,7 @@ function renderizarRutaOSRM(osrmTripData, paradasOrdenadas) {
                 <span class="text-[11px] text-slate-500 font-medium truncate">📍 ${dirOficial}</span>
                 ${!esInicio && !esFin ? `<div class="text-[10px] font-medium text-slate-400 mt-0.5">ID Paquete: <span class="text-slate-600 font-mono font-semibold">${idPaquete}</span></div>` : ''}
             </div>
-            <a href="https://www.google.com/maps/dir/?api=1&destination=${parada.lat},${parada.lng}" target="_blank" 
+            <a href="https://www.google.com/maps/search/?api=1&query=${parada.lat},${parada.lng}" target="_blank" 
                class="bg-slate-900 hover:bg-slate-800 text-white text-xs px-3 py-2 rounded-lg font-semibold transition shrink-0 h-fit stop-propagation no-underline active:scale-95">
                 Individual
             </a>
@@ -465,7 +455,7 @@ function renderizarRutaOSRM(osrmTripData, paradasOrdenadas) {
         el.className = 'custom-marker';
         el.style.backgroundColor = colorPin;
         el.style.width = esInicio || esFin ? '32px' : '26px'; 
-        el.style.height = esInicio || esFin ? '32px' : '26px';
+        el.style.height = esInicio || esFin ? '26px' : '26px';
         el.style.borderRadius = '50%';
         el.style.border = '2.5px solid #ffffff';
         el.style.display = 'flex';
