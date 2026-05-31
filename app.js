@@ -235,7 +235,9 @@ document.getElementById('btn-optimizar').addEventListener('click', async () => {
             const res = await fetch(urlRoute);
             const dataRoute = await res.json();
             if (dataRoute.code === "Ok" && dataRoute.routes && dataRoute.routes[0]) {
-                coordenadasLineaCompleta.push(...dataRoute.routes[0].geometry.coordinates);
+                // Volteamos forzosamente cada par de coordenadas antes de guardarlas
+                    const coordenadasCorregidas = dataRoute.routes[0].geometry.coordinates.map(coord => [coord[1], coord[0]]);
+                    coordenadasLineaCompleta.push(...coordenadasCorregidas);
                 if (!exitoVroom) {
                     viajeDataTrip.distance += dataRoute.routes[0].distance;
                     viajeDataTrip.duration += dataRoute.routes[0].duration;
