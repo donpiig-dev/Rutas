@@ -428,15 +428,16 @@ function renderizarRutaOSRM(osrmTripData, paradasOrdenadas) {
             if (e.target.closest('.stop-propagation')) return;
             // 1. Cambiar forzosamente a la pestaña del mapa
         const botonPestañaMapa = document.getElementById('nav-mapa');
-        if (botonPestañaMapa) botonPestañaMapa.click();
+            if (botonPestañaMapa) botonPestañaMapa.click();
 
-        // 2. Darle tiempo al DOM para mostrarse, hacer resize, y ENTONCES enfocar la línea
-        setTimeout(() => {
-            map.resize();
-            const bounds = coordenadasLineaCompleta.reduce((acc, coord) => acc.extend(coord), new mapboxgl.LngLatBounds(coordenadasLineaCompleta[0], coordenadasLineaCompleta[0]));
-            map.fitBounds(bounds, { padding: 40 });
-        }, 150);
-    }
+            if (!isNaN(parada.lng) && !isNaN(parada.lat)) {
+                setTimeout(() => {
+                    map.flyTo({ center: [parseFloat(parada.lng), parseFloat(parada.lat)], zoom: 16, essential: true, speed: 1.2 });
+                    const claveBuscar = esInicio ? "START" : esFin ? "END" : `${parseFloat(parada.lng).toFixed(5)}_${parseFloat(parada.lat).toFixed(5)}`;
+                    const marcadorAsociado = diccionarioMarcadores[claveBuscar];
+                    if (marcadorAsociado) marcadorAsociado.togglePopup();
+                }, 150);
+            }
         });
 
         if (listaUl) listaUl.appendChild(li);
