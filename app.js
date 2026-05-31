@@ -149,7 +149,7 @@ document.getElementById('btn-optimizar').addEventListener('click', async () => {
 
     try {
         // 🌟 CORRECCIÓN: Apuntamos al endpoint con la ruta de la API oficial de VROOM
-        const respuestaVroom = await fetch('https://vroom-railway-production-06c2.up.railway.app/v1/optimize', {
+        const respuestaVroom = await fetch('https://vroom-railway-production-06c2.up.railway.app/api/vroom/v1/optimize', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(cuerpoPeticionVroom)
