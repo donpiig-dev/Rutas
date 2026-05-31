@@ -148,12 +148,12 @@ document.getElementById('btn-optimizar').addEventListener('click', async () => {
     let exitoVroom = false;
 
     try {
-        // 🔥 Reemplaza con tu URL real generada por el servicio de VROOM en Railway
-        const respuestaVroom = await fetch('https://vroom-railway-production-06c2.up.railway.app/optimize', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(cuerpoPeticionVroom)
-        });
+        // 🔥 Asegúrate de incluir el "/optimize" al final de tu URL real de Railway
+            const respuestaVroom = await fetch('https://vroom-railway-production-06c2.up.railway.app/optimize', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(cuerpoPeticionVroom)
+            });
 
         const resultadoVroom = await respuestaVroom.json();
 
