@@ -1,5 +1,5 @@
 // Configuración Inicial de Tokens
-
+mapboxgl.accessToken = 'pk.eyJ1Ijoic2ViYXN0MjEiLCJhIjoiY21wcHRpdDV3MGoxZTJycTZsbXhjaXY3ZyJ9.Orx8pP8h7z0D4KjSlXyBoQ';
 // 1. Inicializar el Mapa de Mapbox
 const map = new mapboxgl.Map({
     container: 'map',
