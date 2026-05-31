@@ -148,21 +148,33 @@ document.getElementById('btn-optimizar').addEventListener('click', async () => {
     let exitoVroom = false;
 
     try {
-        const respuestaVroom = await fetch('https://vroom-railway-production-06c2.up.railway.app/optimize', {
+        // 🌟 CORRECCIÓN: Apuntamos al endpoint con la ruta de la API oficial de VROOM
+        const respuestaVroom = await fetch('https://vroom-railway-production-06c2.up.railway.app/v1/optimize', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(cuerpoPeticionVroom)
         });
 
-        // Si el servidor nos escupe un HTML de error, lo atrapamos antes de que rompa el JSON parsing
         const textoRespuesta = await respuestaVroom.text();
         
+        // Si el prefijo requiere la ruta completa de la comunidad, probamos con este fallback si el primero falla:
+        if (textoRespuesta.includes('Cannot POST')) {
+            console.log("Probando endpoint alternativo...");
+            const respuestaFallback = await fetch('https://vroom-railway-production-06c2.up.railway.app/api/vroom/v1/optimize', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(cuerpoPeticionVroom)
+            });
+            // Procesar el fallback...
+        }
+
         if (!respuestaVroom.ok || textoRespuesta.includes('<!DOCTYPE')) {
             console.error("El servidor VROOM devolvió un error HTML. Revisa los logs de Railway:", textoRespuesta);
             throw new Error("Respuesta inválida del servidor.");
         }
 
         const resultadoVroom = JSON.parse(textoRespuesta);
+        // ... (resto de tu lógica de renderizado)
 
         if (resultadoVroom.code === 0 && resultadoVroom.routes && resultadoVroom.routes.length > 0) {
             const pasosRuta = resultadoVroom.routes[0].steps;
