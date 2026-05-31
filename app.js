@@ -148,8 +148,8 @@ document.getElementById('btn-optimizar').addEventListener('click', async () => {
     let exitoVroom = false;
 
     try {
-        // 🌟 CORRECCIÓN: Apuntamos al endpoint con la ruta de la API oficial de VROOM
-        const respuestaVroom = await fetch('https://vroom-railway-production-06c2.up.railway.app/api/vroom/v1/optimize', {
+        // 🌟 LA SOLUCIÓN DEFINITIVA: VROOM Express por defecto escucha los POST directamente en la raíz
+        const respuestaVroom = await fetch('https://vroom-railway-production-06c2.up.railway.app/', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(cuerpoPeticionVroom)
@@ -157,23 +157,13 @@ document.getElementById('btn-optimizar').addEventListener('click', async () => {
 
         const textoRespuesta = await respuestaVroom.text();
         
-        // Si el prefijo requiere la ruta completa de la comunidad, probamos con este fallback si el primero falla:
-        if (textoRespuesta.includes('Cannot POST')) {
-            console.log("Probando endpoint alternativo...");
-            const respuestaFallback = await fetch('https://vroom-railway-production-06c2.up.railway.app/api/vroom/v1/optimize', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(cuerpoPeticionVroom)
-            });
-            // Procesar el fallback...
-        }
-
         if (!respuestaVroom.ok || textoRespuesta.includes('<!DOCTYPE')) {
             console.error("El servidor VROOM devolvió un error HTML. Revisa los logs de Railway:", textoRespuesta);
             throw new Error("Respuesta inválida del servidor.");
         }
 
         const resultadoVroom = JSON.parse(textoRespuesta);
+        // ... (Tu lógica de renderizado feliz para tus 100+ paradas)
         // ... (resto de tu lógica de renderizado)
 
         if (resultadoVroom.code === 0 && resultadoVroom.routes && resultadoVroom.routes.length > 0) {
