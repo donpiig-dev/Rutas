@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="es" class="h-full bg-gray-900 text-gray-100">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>DownloaderCar - Rutas</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mapbox-polyline/1.2.1/polyline.js"></script>
+    
+    <script src="https://api.mapbox.com/mapbox-gl-js/v3.1.2/mapbox-gl.js"></script>
+    <link href="https://api.mapbox.com/mapbox-gl-js/v3.1.2/mapbox-gl.css" rel="stylesheet">
+    
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="flex flex-col h-full overflow-hidden select-none antialiased bg-gray-900 text-gray-100">
+
+    <header class="bg-gray-800 border-b border-gray-700 px-4 py-3 shadow-md flex items-center justify-between z-10">
+        <div class="flex items-center gap-2">
+            <span class="text-xl">🚗</span>
+            <h1 class="text-lg font-bold tracking-wide text-emerald-400">Rutas Pro</h1>
+        </div>
+        <span class="text-xs bg-gray-700 text-gray-400 px-2 py-1 rounded-full font-mono">PWA v1.0</span>
+    </header>
+
+    <main class="flex-1 relative overflow-hidden bg-gray-900">
+        
+        <div id="tab-lista" class="tab-content active absolute inset-0 flex flex-col p-4 overflow-y-auto gap-4 pb-20 bg-gray-900">
+            
+            <div class="bg-gray-800 p-4 rounded-xl shadow-lg border border-gray-700 shrink-0">
+                <label for="input-direcciones" class="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">
+                    Direcciones de Entrega (Una por línea)
+                </label>
+                <textarea id="input-direcciones" rows="5" 
+                    class="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 text-sm text-emerald-300 placeholder-gray-600 focus:outline-none focus:border-emerald-500 transition"
+                    placeholder="Puerta del Sol, Madrid&#10;Calle de Alcalá 20, Madrid&#10;Plaza Mayor, Madrid"></textarea>
+                <div class="flex flex-col gap-3 bg-gray-800 p-4 rounded-lg mb-4 text-white">
+                            <h3 class="text-sm font-bold text-emerald-400">📍 Configuración del Viaje</h3>
+                            
+                            <div>
+                                <label class="text-xs text-gray-400">Punto de Partida (Inicio):</label>
+                                <input type="text" id="start-coords" class="w-full bg-gray-700 text-xs p-2 rounded border border-gray-600" 
+                                       value="-118.4515255,34.2328296" placeholder="Lng,Lat de la Base o Almacén">
+                            </div>
+
+                            <div>
+                                <label class="text-xs text-gray-400">Punto de Destino (Fin):</label>
+                                <input type="text" id="end-coords" class="w-full bg-gray-700 text-xs p-2 rounded border border-gray-600" 
+                                       value="-118.4515255,34.2328296" placeholder="Lng,Lat del Depósito final">
+                            </div>
+                </div>
+                <button id="btn-optimizar" 
+                    class="w-full mt-3 bg-emerald-500 hover:bg-emerald-600 active:scale-[0.98] text-gray-900 font-bold py-3 px-4 rounded-lg shadow-md transition duration-150 text-sm flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50">
+                    ⚡ Convertir y Optimizar Ruta
+                </button>
+            </div>
+
+            <div class="flex-1 flex flex-col min-h-[250px]">
+                <h2 class="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2 px-1">Secuencia de Entrega</h2>
+                    <div id="stats-ruta" class="text-xs font-mono text-emerald-400 hidden bg-gray-800 px-2 py-1 rounded border border-gray-700">
+                ⏳ <span id="stat-tiempo">--</span> | 🛣️ <span id="stat-millas">-- mi</span>
+                    </div>
+
+                <ul id="lista-ordenada" class="space-y-2.5">
+                    <li class="bg-gray-800 p-4 rounded-lg border border-gray-700 text-center text-sm text-gray-500 italic">
+                        Introduce direcciones y presiona optimizar para trazar el recorrido.
+                    </li>
+                </ul>
+            </div>
+
+        </div>
+
+        <div id="tab-mapa" class="tab-content absolute inset-0 bg-gray-950">
+            <div id="map" class="w-full h-full"></div>
+        </div>
+
+    </main>
+
+    <nav class="bg-gray-800 border-t border-gray-700 shadow-xl flex z-10 pb-safe">
+        <button id="nav-lista" class="flex-1 py-3 flex flex-col items-center justify-center gap-1 text-emerald-400 focus:outline-none transition">
+            <span class="text-xl">📋</span>
+            <span class="text-xs font-medium">Direcciones</span>
+        </button>
+        <div class="w-px bg-gray-700 my-3"></div>
+        <button id="nav-mapa" class="flex-1 py-3 flex flex-col items-center justify-center gap-1 text-gray-400 focus:outline-none transition">
+            <span class="text-xl">🗺️</span>
+            <span class="text-xs font-medium">Mapa Ruta</span>
+        </button>
+    </nav>
+
+    <script src="app.js"></script>
+</body>
+</html>
