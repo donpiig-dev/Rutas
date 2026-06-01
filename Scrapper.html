@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Captura de Datos</title>
+    
+</head>
+
+<body>
+    <style>
+        * {
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: #f4f7f6;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        .container {
+            background: white;
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            width: 90%;
+            max-width: 400px;
+            text-align: center;
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        input {
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+
+        input:focus {
+            border-color: #007bff;
+        }
+
+        button {
+            padding: 12px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background 0.3s;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        #dataList {
+            list-style: none;
+            padding: 0;
+            margin-top: 20px;
+            text-align: left;
+        }
+
+        #dataList li {
+            background: #e9ecef;
+            margin-bottom: 5px;
+            padding: 8px 12px;
+            border-radius: 4px;
+            word-break: break-all;
+        }
+        .container: {;
+            height: 60%;
+        }
+        #datos{
+            height: 60%;
+        }
+    </style>
+    <div class="container" id="datos">
+        <h2>Registro de Datos</h2>
+        <div class="input-group">
+            <input type="text" id="userInput" placeholder="Escribe algo aquí..." autocomplete="off">
+            <button id="addBtn">Guardar Dato</button>
+        </div>
+
+        <h3>Lista de Datos:</h3>
+        <ul id="dataList">
+        </ul>
+
+        <h3>Lista de Direcciones:</h3>
+        <ul id="direlist">
+        </ul>
+    </div>
+
+<script>
+    const inputTexto = document.getElementById('userInput');
+    const botonGuardar = document.getElementById('addBtn');
+    const listaVisual = document.getElementById('dataList');
+
+    // Función unificada para copiar con Alerta Personalizada
+    function copiarConAlerta(texto, tipo) {
+        if (!texto || texto === "---") return;
+        
+        navigator.clipboard.writeText(texto).then(() => {
+            alert(`✅ ${tipo} copiado con éxito:\n${texto}`);
+        }).catch(err => {
+            console.error('Error al copiar: ', err);
+        });
+    }
+
+    function encontrarDato(obj, llave) {
+        if (!obj || typeof obj !== 'object') return null;
+        if (obj[llave] !== undefined && obj[llave] !== null) return obj[llave];
+        for (let p in obj) {
+            if (typeof obj[p] === 'object') {
+                let res = encontrarDato(obj[p], llave);
+                if (res !== null) return res;
+            }
+        }
+        return null;
+    }
+
+    function localizarArray(obj) {
+        if (Array.isArray(obj) && obj.length > 5) return obj;
+        if (typeof obj !== 'object' || obj === null) return null;
+        for (let k in obj) {
+            let res = localizarArray(obj[k]);
+            if (res) return res;
+        }
+        return null;
+    }
+
+    botonGuardar.addEventListener('click', () => {
+        const contenido = inputTexto.value.trim();
+        if (!contenido) return;
+        try {
+            const jsonParsed = JSON.parse(contenido);
+            const arrayEnvios = localizarArray(jsonParsed);
+            if (arrayEnvios) {
+                renderizarTabla(arrayEnvios);
+                inputTexto.value = ""; 
+            } else {
+                alert("No se encontró la lista de envíos.");
+            }
+        } catch (e) {
+            alert("Error: JSON no válido.");
+        }
+    });
+
+    function renderizarTabla(datos) {
+        listaVisual.innerHTML = ""; 
+        const tabla = document.createElement('table');
+        tabla.style.width = "100%";
+        tabla.style.borderCollapse = "collapse";
+        tabla.style.marginTop = "15px";
+
+        // Configuración de columnas (Añadida columna #)
+        const columnasDef = [
+            { id: 'indice', titulo: '#' },
+            { id: 'standardizedAddressString', titulo: 'Dirección' },
+            { id: 'stopNumber', titulo: 'Parada' },
+            { id: 'fullName', titulo: 'Nombre' }
+        ];
+
+        const thead = document.createElement('thead');
+        
+        // 1. FILA VERDE: COPIAR TODO
+        const filaCopiarTodo = document.createElement('tr');
+        const thCopiarTodo = document.createElement('th');
+        thCopiarTodo.colSpan = 4;
+        thCopiarTodo.textContent = "📋 COPIAR TODO (Tabla Completa)";
+        thCopiarTodo.style.background = "#28a745";
+        thCopiarTodo.style.color = "white";
+        thCopiarTodo.style.padding = "10px";
+        thCopiarTodo.style.cursor = "pointer";
+        thCopiarTodo.onclick = () => {
+            let textoCompleto = "#\tDirección\tParada\tNombre\n";
+            datos.forEach((item, index) => {
+                const d = encontrarDato(item, 'standardizedAddressString') || "---";
+                const p = encontrarDato(item, 'stopNumber') || "---";
+                const n = encontrarDato(item, 'fullName') || "---";
+                textoCompleto += `${index + 1}\t${d}\t${p}\t${n}\n`;
+            });
+            copiarConAlerta(textoCompleto, "Contenido de la tabla");
+        };
+        filaCopiarTodo.appendChild(thCopiarTodo);
+        thead.appendChild(filaCopiarTodo);
+
+        // 2. FILA AZUL: ENCABEZADOS
+        const filaHead = document.createElement('tr');
+        filaHead.style.background = "#007bff";
+        filaHead.style.color = "white";
+
+        columnasDef.forEach(col => {
+            const th = document.createElement('th');
+            th.textContent = col.titulo;
+            th.style.padding = "10px";
+            th.style.border = "1px solid #ddd";
+            th.style.cursor = "pointer";
+            
+            th.onclick = (e) => {
+                e.stopPropagation();
+                if(col.id === 'indice') return; // El índice no se copia solo
+                const dataCol = datos.map(item => encontrarDato(item, col.id) || "---").join("\n");
+                copiarConAlerta(dataCol, `Contenido columna ${col.titulo}`);
+            };
+            filaHead.appendChild(th);
+        });
+        thead.appendChild(filaHead);
+        tabla.appendChild(thead);
+
+        // --- CUERPO ---
+        const tbody = document.createElement('tbody');
+        datos.forEach((item, index) => {
+            const direccion = encontrarDato(item, 'standardizedAddressString') || "---";
+            const parada = encontrarDato(item, 'stopNumber') || "---";
+            const nombre = encontrarDato(item, 'fullName') || "---";
+            
+            const fila = document.createElement('tr');
+            fila.style.cursor = "pointer";
+            fila.style.background = "white";
+            fila.onmouseover = () => fila.style.background = "#f8f9fa";
+            fila.onmouseout = () => fila.style.background = "white";
+            
+            // Al hacer clic en la fila copia la información combinada
+            fila.onclick = () => copiarConAlerta(`${direccion} | ${parada} | ${nombre}`, "Contenido fila");
+
+            fila.innerHTML = `
+                <td style="padding:8px; border:1px solid #ddd; font-size:12px; text-align:center; font-weight:bold; background:#f1f1f1;">${index + 1}</td>
+                <td style="padding:8px; border:1px solid #ddd; font-size:12px;">${direccion}</td>
+                <td style="padding:8px; border:1px solid #ddd; font-size:12px; text-align:center;">${parada}</td>
+                <td style="padding:8px; border:1px solid #ddd; font-size:12px;">${nombre}</td>
+            `;
+            tbody.appendChild(fila);
+        });
+
+        tabla.appendChild(tbody);
+        listaVisual.appendChild(tabla);
+    }
+</script>
+
+</body>
+
+</html>
